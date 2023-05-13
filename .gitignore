@@ -1,5 +1,6 @@
 # Target
 mdriver
+.vscode
 
 # Prerequisites
 *.d
