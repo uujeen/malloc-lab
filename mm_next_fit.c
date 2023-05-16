@@ -70,6 +70,7 @@ team_t team = {
 
 /* global variable & functions */
 static char *heap_listp; // 항상 prologue block을 가리키는 정적 전역 변수 설정
+static char *prev_bp; // next fit을 위한 이전 bp 저장 포인터
 
 // 기존 함수 선언
 int mm_init(void);
@@ -126,6 +127,7 @@ static void *coalesce(void *bp) {
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {
+        prev_bp = bp;
         return bp;
     }
 
@@ -148,6 +150,7 @@ static void *coalesce(void *bp) {
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+    prev_bp = bp;
     return bp;
 }
 
@@ -221,13 +224,23 @@ void *mm_realloc(void *bp, size_t size)
 
 static void *find_fit(size_t asize) {
     void *bp;
-
-    /* First-fit search */    
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+    /* Next-fit search */
+    // bp = heap_listp;
+    // if (prev_bp)
+    //     bp = prev_bp;
+    
+    for (bp = prev_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+            // prev_bp = bp;
             return bp;
         }
     }
+    // for (bp = heap_listp; bp == prev_bp; bp = NEXT_BLKP(bp)) {
+    //     if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+    //         // prev_bp = bp;
+    //         return bp;
+    //     }
+    // }
 
     return NULL; /* No fit */
 }
