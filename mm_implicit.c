@@ -37,24 +37,24 @@ team_t team = {
 #define ALIGNMENT 8
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7) 
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
 
 // size_t : 해당 시스템에서 어떤 객체나 값이 포함할 수 있는 최대 크기의 데이터
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* Basic constants and macros*/
-#define WSIZE 4 // 싱글 워드 bytes 단위
-#define DSIZE 8 // 더블 워드
+#define WSIZE 8 // 싱글 워드 bytes 단위
+#define DSIZE 16 // 더블 워드
 #define CHUNKSIZE (1<<12) // 초기 가용 블록과 힙 확장을 위한 기본 크기
 
 #define MAX(x, y) ((x) > (y)? (x) : (y))
 
 /* Pack a size and allocated bit into a word*/
-#define PACK(size, alloc) ((size) | (alloc))// 크기와 할당 비트를 통합해서 헤더와 풋터에 저장할 수 있는 값을 리턴한다.
+#define PACK(size, alloc) ((size) | (alloc)) // 크기와 할당 비트를 통합해서 헤더와 풋터에 저장할 수 있는 값을 리턴한다.
 
 /* Read and write a word at address p */
 #define GET(p) (*(unsigned int *)(p)) // 인자 p가 참조하는 워드를 읽어서 리턴한다.
-#define PUT(p, val) (*(unsigned int *)(p) = (val)) 
+#define PUT(p, val) (*(unsigned int *)(p) = (val))
 
 /*Read the size and allocated fields from adress p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
@@ -70,7 +70,6 @@ team_t team = {
 
 /* global variable & functions */
 static char *heap_listp; // 항상 prologue block을 가리키는 정적 전역 변수 설정
-static char *prev_bp; // next fit을 위한 이전 bp 저장 포인터
 
 // 기존 함수 선언
 int mm_init(void);
@@ -127,7 +126,6 @@ static void *coalesce(void *bp) {
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {
-        prev_bp = bp;
         return bp;
     }
 
@@ -150,7 +148,6 @@ static void *coalesce(void *bp) {
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-    prev_bp = bp;
     return bp;
 }
 
@@ -214,7 +211,6 @@ void *mm_realloc(void *bp, size_t size)
     if (newbp == NULL)
       return NULL;
     copySize = GET_SIZE(HDRP(oldbp));
-    // copySize = *(size_t *)((char *)oldbp - SIZE_T_SIZE);
     if (size < copySize)
       copySize = size;
     memcpy(newbp, oldbp, copySize);
@@ -224,14 +220,14 @@ void *mm_realloc(void *bp, size_t size)
 
 static void *find_fit(size_t asize) {
     void *bp;
-    /* Next-fit search */
-    
-    for (bp = prev_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+
+    /* First-fit search */    
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
             return bp;
         }
-    }    
-    
+    }
+
     return NULL; /* No fit */
 }
 

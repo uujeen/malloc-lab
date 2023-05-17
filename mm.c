@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h> // SIZE_MAX 를 포함하는 header
 
 #include "mm.h"
 #include "memlib.h"
@@ -37,24 +38,24 @@ team_t team = {
 #define ALIGNMENT 8
 
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7) 
 
 // size_t : 해당 시스템에서 어떤 객체나 값이 포함할 수 있는 최대 크기의 데이터
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* Basic constants and macros*/
-#define WSIZE 8 // 싱글 워드 bytes 단위
-#define DSIZE 16 // 더블 워드
+#define WSIZE 4 // 싱글 워드 bytes 단위
+#define DSIZE 8 // 더블 워드
 #define CHUNKSIZE (1<<12) // 초기 가용 블록과 힙 확장을 위한 기본 크기
 
 #define MAX(x, y) ((x) > (y)? (x) : (y))
 
 /* Pack a size and allocated bit into a word*/
-#define PACK(size, alloc) ((size) | (alloc)) // 크기와 할당 비트를 통합해서 헤더와 풋터에 저장할 수 있는 값을 리턴한다.
+#define PACK(size, alloc) ((size) | (alloc))// 크기와 할당 비트를 통합해서 헤더와 풋터에 저장할 수 있는 값을 리턴한다.
 
 /* Read and write a word at address p */
 #define GET(p) (*(unsigned int *)(p)) // 인자 p가 참조하는 워드를 읽어서 리턴한다.
-#define PUT(p, val) (*(unsigned int *)(p) = (val))
+#define PUT(p, val) (*(unsigned int *)(p) = (val)) 
 
 /*Read the size and allocated fields from adress p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
@@ -220,15 +221,22 @@ void *mm_realloc(void *bp, size_t size)
 }
 
 static void *find_fit(size_t asize) {
-    void *bp;
-
-    /* First-fit search */    
+    void *bp;    
+    /* best-fit search */
+    size_t min_size = SIZE_MAX; // SIZE_MAX 해당 비트 (32 or 64)에서 가장 큰 정수형 크기
+    void *best_bp;
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
-            return bp;
+            size_t block_size = GET_SIZE(HDRP(bp));
+            if (min_size > block_size) {
+                min_size = block_size;
+                best_bp = bp;
+            }
         }
-    }
-
+    }    
+    if (best_bp && min_size != SIZE_MAX)
+        return best_bp;
+        
     return NULL; /* No fit */
 }
 
